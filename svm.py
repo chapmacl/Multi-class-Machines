@@ -6,7 +6,12 @@ from sklearn.metrics import classification_report
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import LabelEncoder
 from sklearn.feature_extraction.text import (CountVectorizer, TfidfTransformer)
+from sklearn.preprocessing import OneHotEncoder
 from sklearn.svm import SVC
+from sklearn.naive_bayes import GaussianNB
+from sklearn import linear_model
+from sklearn.tree import DecisionTreeClassifier
+from sklearn.neural_network import MLPClassifier
 import matplotlib.pyplot as plt
 import itertools
 import numpy as np 
@@ -15,54 +20,106 @@ import time
  
 features = []
 labels = []
+predict = []
+isHeader = True
+headers = []
+
 start = time.time()
 print('Loading data...')
 #load the data from the csv file into a workable array
+#The data must be encoded, since SVMs cannot recognize text or string values
+le = preprocessing.LabelEncoder()
+cv = CountVectorizer()
 with open('predict.csv', 'r') as f:
-        csv_reader = csv.reader(f)
-        for row in csv_reader:
-            labels.append(row[2])
-            del row[2]
-            features.append(row)
+    csv_reader = csv.reader(f)
+    for row in csv_reader:
+        if (isHeader):
+            headers.append(row)
+            isHeader = False 
+            continue
+        labels.append(row[2])
+        del row[2]
+        '''
+        encoded = le.fit_transform(row)
+        encoded = encoded.reshape(len(encoded), 1)
+        oe = OneHotEncoder(sparse=False)
+        oe = oe.fit_transform(encoded)
+        '''
+        features.append(le.fit_transform(row))
             
-
-headers = features[0]
-features.pop(0)
-headers.insert(2, labels[0])
-labels.pop(0)
 
 
 # X -> features, y -> label
 X = features
 y = labels
+
  
-testX = []
-#The data must be encoded, since SVMs cannot recognize text or string values
-le = preprocessing.LabelEncoder()
-for row in X:
-    testX.append(le.fit_transform(row))
-
-
 # dividing X, y into train and test data
-X_train, X_test, y_train, y_test = train_test_split(testX, y, test_size=0.30, random_state = 0)
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.30, random_state = 0)
  
 # training a linear SVM classifier
 print('Training SVM...')
 svm_model_linear = SVC(kernel = 'linear', C = 1).fit(X_train, y_train)
 svm_predictions = svm_model_linear.predict(X_test)
- 
-# model accuracy for X_test  
-accuracy = svm_model_linear.score(X_test, y_test)
-print('SVM Model is: ' + str(accuracy) + ' accurate')
-stop = time.time()
-print('This model took ' + str(stop-start) + ' seconds to complete')
- 
-# creating a confusion matrix
-cm = confusion_matrix(y_test, svm_predictions)
-print(classification_report(y_test, svm_predictions))
-#print(cm)
 
+#Training a NB classifier
+print('Training NB...')
+clf = GaussianNB()
+clf.fit(X_train, y_train)
+nb_predictions = clf.predict(X_test)
+
+print('Training SGDC model...')
+sg = linear_model.SGDClassifier()
+sg.fit(X_train, y_train)
+sg_predictions = sg.predict(X_test)
+
+print('Training decision tree model...')
+dtc = DecisionTreeClassifier(random_state=0)
+dtc.fit(X_train, y_train)
+dtc_predictions = dtc.predict(X_test)
+
+print('Training neural network model...')
+mlp = MLPClassifier()
+mlp.fit(X_train, y_train)
+mlp_predictions = mlp.predict(X_test)
+
+
+# creating a confusion matrix
+print('SVM')
+print(classification_report(y_test, svm_predictions))
+print('NB')
+print(classification_report(y_test, nb_predictions))
+print('SGDC')
+print(classification_report(y_test, sg_predictions))
+print('DT')
+print(classification_report(y_test, dtc_predictions))
+print('MLP')
+print(classification_report(y_test, mlp_predictions))
+
+stop = time.time()
+print('This process took ' + str(stop-start) + ' seconds to complete')
+
+'''
+with open('test.csv', 'r') as f:
+    csv_reader = csv.reader(f)
+    for row in csv_reader:
+        del row[2]
+        predict.append(le.fit_transform(row))
+
+predicted = svm_model_linear.predict(predict)
+
+total = 0
+correct = 0 
+
+for row in predicted:
+    if (row == '60'):
+        correct = correct + 1
+    total = total + 1
+
+print('Finished. ' + str(correct) + '/' + str(total) + 'correct predictions')
 #For saving the model to Disk
+'''
+
 '''
 import cPickle
 # save the classifier
